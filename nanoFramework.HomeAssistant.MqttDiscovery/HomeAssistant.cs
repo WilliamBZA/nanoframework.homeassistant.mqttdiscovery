@@ -32,10 +32,8 @@ namespace nanoFramework.HomeAssistant.MqttDiscovery
 
             lastUpdatedTimer = new Timer((state) =>
             {
-                if (client != null && client.IsConnected)
-                {
-                    sensor.UpdateValue(DateTime.UtcNow.ToString("o"));
-                }
+                ValidateConnection();
+                sensor.UpdateValue(DateTime.UtcNow.ToString("o"));
             }, null, 0, 60000);
         }
 
@@ -61,6 +59,12 @@ namespace nanoFramework.HomeAssistant.MqttDiscovery
                             item.SetState(message);
                         }
                     }
+                };
+
+                client.ConnectionClosed += (sender, e) =>
+                {
+                    Console.WriteLine("MQTT connection closed. Reconnecting...");
+                    Connect();
                 };
 
                 retCode = client.Connect(DeviceName, username, password);
