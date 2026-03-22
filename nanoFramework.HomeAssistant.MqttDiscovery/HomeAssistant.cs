@@ -41,38 +41,46 @@ namespace nanoFramework.HomeAssistant.MqttDiscovery
 
         public void Connect()
         {
-            MqttReasonCode retCode;
-
-            do
+            lock (connectionLock)
             {
-                client = new MqttClient(brokerIp, port, false, null, null, MqttSslProtocols.None);
-
-                client.MqttMsgPublishReceived += (sender, e) =>
+                if (client != null && client.IsConnected)
                 {
-                    var message = Encoding.UTF8.GetString(e.Message, 0, e.Message.Length);
-                    Console.WriteLine($"Received message on topic {e.Topic}: {message}");
+                    return;
+                }
 
-                    foreach (HomeAssistantItem item in items)
+                MqttReasonCode retCode;
+
+                do
+                {
+                    client = new MqttClient(brokerIp, port, false, null, null, MqttSslProtocols.None);
+
+                    client.MqttMsgPublishReceived += (sender, e) =>
                     {
-                        if (item.GetCommandTopic() == e.Topic)
+                        var message = Encoding.UTF8.GetString(e.Message, 0, e.Message.Length);
+                        Console.WriteLine($"Received message on topic {e.Topic}: {message}");
+
+                        foreach (HomeAssistantItem item in items)
                         {
-                            item.SetState(message);
+                            if (item.GetCommandTopic() == e.Topic)
+                            {
+                                item.SetState(message);
+                            }
                         }
-                    }
-                };
+                    };
 
-                client.ConnectionClosed += (sender, e) =>
-                {
-                    Console.WriteLine("MQTT connection closed. Reconnecting...");
-                    Connect();
-                };
+                    client.ConnectionClosed += (sender, e) =>
+                    {
+                        Console.WriteLine("MQTT connection closed. Reconnecting...");
+                        Connect();
+                    };
 
-                retCode = client.Connect(DeviceName, username, password);
-            } while (retCode != MqttReasonCode.Success);
+                    retCode = client.Connect(DeviceName, username, password);
+                } while (retCode != MqttReasonCode.Success);
 
-            Console.WriteLine("Connected to MQTT Broker");
+                Console.WriteLine("Connected to MQTT Broker");
 
-            PublishAutoDiscovery();
+                PublishAutoDiscovery();
+            }
         }
 
         public void PublishAutoDiscovery()
@@ -160,6 +168,7 @@ namespace nanoFramework.HomeAssistant.MqttDiscovery
         }
 
         MqttClient client;
+        private readonly object connectionLock = new object();
 
         private string brokerIp;
         private int port;
