@@ -32,43 +32,57 @@ namespace nanoFramework.HomeAssistant.MqttDiscovery
 
             lastUpdatedTimer = new Timer((state) =>
             {
-                if (client != null && client.IsConnected)
-                {
-                    sensor.UpdateValue(DateTime.UtcNow.ToString("o"));
-                }
-            }, null, 0, 60000);
+                ValidateConnection();
+                sensor.UpdateValue(DateTime.UtcNow.ToString("o"));
+            }, null, Timeout.Infinite, Timeout.Infinite);
         }
 
         public string DeviceName { get; private set; }
 
         public void Connect()
         {
-            MqttReasonCode retCode;
-
-            do
+            lock (connectionLock)
             {
-                client = new MqttClient(brokerIp, port, false, null, null, MqttSslProtocols.None);
-
-                client.MqttMsgPublishReceived += (sender, e) =>
+                if (client != null && client.IsConnected)
                 {
-                    var message = Encoding.UTF8.GetString(e.Message, 0, e.Message.Length);
-                    Console.WriteLine($"Received message on topic {e.Topic}: {message}");
+                    return;
+                }
 
-                    foreach (HomeAssistantItem item in items)
+                MqttReasonCode retCode;
+
+                do
+                {
+                    client = new MqttClient(brokerIp, port, false, null, null, MqttSslProtocols.None);
+
+                    client.MqttMsgPublishReceived += (sender, e) =>
                     {
-                        if (item.GetCommandTopic() == e.Topic)
+                        var message = Encoding.UTF8.GetString(e.Message, 0, e.Message.Length);
+                        Console.WriteLine($"Received message on topic {e.Topic}: {message}");
+
+                        foreach (HomeAssistantItem item in items)
                         {
-                            item.SetState(message);
+                            if (item.GetCommandTopic() == e.Topic)
+                            {
+                                item.SetState(message);
+                            }
                         }
-                    }
-                };
+                    };
 
-                retCode = client.Connect(DeviceName, username, password);
-            } while (retCode != MqttReasonCode.Success);
+                    client.ConnectionClosed += (sender, e) =>
+                    {
+                        Console.WriteLine("MQTT connection closed. Reconnecting...");
+                        Connect();
+                    };
 
-            Console.WriteLine("Connected to MQTT Broker");
+                    retCode = client.Connect(DeviceName, username, password);
+                } while (retCode != MqttReasonCode.Success);
 
-            PublishAutoDiscovery();
+                Console.WriteLine("Connected to MQTT Broker");
+
+                PublishAutoDiscovery();
+
+                lastUpdatedTimer.Change(0, 60000);
+            }
         }
 
         public void PublishAutoDiscovery()
@@ -156,6 +170,7 @@ namespace nanoFramework.HomeAssistant.MqttDiscovery
         }
 
         MqttClient client;
+        private readonly object connectionLock = new object();
 
         private string brokerIp;
         private int port;
