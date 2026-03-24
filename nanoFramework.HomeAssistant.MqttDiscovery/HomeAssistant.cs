@@ -34,7 +34,7 @@ namespace nanoFramework.HomeAssistant.MqttDiscovery
             {
                 ValidateConnection();
                 sensor.UpdateValue(DateTime.UtcNow.ToString("o"));
-            }, null, 0, 60000);
+            }, null, Timeout.Infinite, Timeout.Infinite);
         }
 
         public string DeviceName { get; private set; }
@@ -80,6 +80,8 @@ namespace nanoFramework.HomeAssistant.MqttDiscovery
                 Console.WriteLine("Connected to MQTT Broker");
 
                 PublishAutoDiscovery();
+
+                lastUpdatedTimer.Change(0, 60000);
             }
         }
 
