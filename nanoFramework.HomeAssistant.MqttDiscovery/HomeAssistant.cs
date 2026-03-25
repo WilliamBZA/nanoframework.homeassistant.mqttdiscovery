@@ -68,14 +68,14 @@ namespace nanoFramework.HomeAssistant.MqttDiscovery
                         }
                     };
 
-                    client.ConnectionClosed += (sender, e) =>
-                    {
-                        Console.WriteLine("MQTT connection closed. Reconnecting...");
-                        Connect();
-                    };
-
                     retCode = client.Connect(DeviceName, username, password);
                 } while (retCode != MqttReasonCode.Success);
+
+                client.ConnectionClosed += (sender, e) =>
+                {
+                    Console.WriteLine("MQTT connection closed. Reconnecting...");
+                    Connect();
+                };
 
                 Console.WriteLine("Connected to MQTT Broker");
 
