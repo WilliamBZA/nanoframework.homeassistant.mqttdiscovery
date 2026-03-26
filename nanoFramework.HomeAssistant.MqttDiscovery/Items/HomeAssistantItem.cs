@@ -13,7 +13,6 @@ namespace nanoFramework.HomeAssistant.MqttDiscovery.Items
 
         public abstract string GetCommandTopic();
         public abstract string GetStateTopic();
-        public abstract string GetAvailabilityTopic();
 
         public virtual string GetState()
         {

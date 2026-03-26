@@ -16,7 +16,6 @@ namespace nanoFramework.HomeAssistant.MqttDiscovery.Items
         public override string GetDiscoveryTopic() => $"homeassistant/sensor/{homeAssistant.DeviceName.Replace(" ", "-")}/{sensorName.Replace(" ", "-")}/config";
         public override string GetCommandTopic() => "";
         public override string GetStateTopic() => $"nanoframework/sensor/{homeAssistant.DeviceName.Replace(" ", "-")}/{sensorName.Replace(" ", "-")}/state";
-        public override string GetAvailabilityTopic() => $"nanoframework/sensor/{homeAssistant.DeviceName.Replace(" ", "-")}/{sensorName.Replace(" ", "-")}/availability";
 
         public override string ToDiscoveryMessage()
         {
@@ -24,7 +23,7 @@ namespace nanoFramework.HomeAssistant.MqttDiscovery.Items
                 + "\"name\": \"" + sensorName + "\","
                 + "\"unique_id\": \"" + homeAssistant.DeviceName.Replace(" ", "-") + "-" + sensorName.Replace(" ", "-") + "-sensor\","
                 + "\"state_topic\": \"" + GetStateTopic() + "\","
-                + "\"availability_topic\": \"" + GetAvailabilityTopic() + "\",";
+                + "\"availability_topic\": \"" + homeAssistant.GetAvailabilityTopic() + "\",";
 
             if (!string.IsNullOrEmpty(unitOfMeasurement))
             {
