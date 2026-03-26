@@ -22,19 +22,6 @@ namespace nanoFramework.HomeAssistant.MqttDiscovery
             this.password = password;
 
             items = new ArrayList();
-
-            AddLastUpdatedItem();
-        }
-
-        private void AddLastUpdatedItem()
-        {
-            var sensor = AddSensor("Last Updated", "", DateTime.UtcNow.ToString("o"), DeviceClass.Timestamp);
-
-            lastUpdatedTimer = new Timer((state) =>
-            {
-                ValidateConnection();
-                sensor.UpdateValue(DateTime.UtcNow.ToString("o"));
-            }, null, Timeout.Infinite, Timeout.Infinite);
         }
 
         public string DeviceName { get; private set; }
