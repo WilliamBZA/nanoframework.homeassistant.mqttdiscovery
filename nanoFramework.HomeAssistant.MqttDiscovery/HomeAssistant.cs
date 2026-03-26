@@ -36,31 +36,45 @@ namespace nanoFramework.HomeAssistant.MqttDiscovery
                 {
                     return;
                 }
+                
+                if (client != null)
+                {
+                    client.Dispose();
+                    client = null;
+                }
 
                 MqttReasonCode retCode;
 
                 do
                 {
-                    client = new MqttClient(brokerIp, port, false, null, null, MqttSslProtocols.None);
-
-                    client.MqttMsgPublishReceived += (sender, e) =>
+                    try
                     {
-                        var message = Encoding.UTF8.GetString(e.Message, 0, e.Message.Length);
-                        Console.WriteLine($"Received message on topic {e.Topic}: {message}");
+                        client = new MqttClient(brokerIp, port, false, null, null, MqttSslProtocols.None);
 
-                        foreach (HomeAssistantItem item in items)
+                        client.MqttMsgPublishReceived += (sender, e) =>
                         {
-                            if (item.GetCommandTopic() == e.Topic)
-                            {
-                                item.SetState(message);
-                            }
-                        }
-                    };
+                            var message = Encoding.UTF8.GetString(e.Message, 0, e.Message.Length);
+                            Console.WriteLine($"Received message on topic {e.Topic}: {message}");
 
-                    retCode = client.Connect(DeviceName, username, password,
-                        willRetain: true, MqttQoSLevel.AtLeastOnce, willFlag: true,
-                        GetAvailabilityTopic(), "offline",
-                        cleanSession: true, keepAlivePeriod: 60);
+                            foreach (HomeAssistantItem item in items)
+                            {
+                                if (item.GetCommandTopic() == e.Topic)
+                                {
+                                    item.SetState(message);
+                                }
+                            }
+                        };
+
+                        retCode = client.Connect(DeviceName, username, password,
+                            willRetain: true, MqttQoSLevel.AtLeastOnce, willFlag: true,
+                            GetAvailabilityTopic(), "offline",
+                            cleanSession: true, keepAlivePeriod: 60);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Exception during connect, retrying: {ex.Message}");
+                        retCode = MqttReasonCode.UnspecifiedError;
+                    }
                 } while (retCode != MqttReasonCode.Success);
 
                 client.ConnectionClosed += (sender, e) =>
@@ -72,8 +86,6 @@ namespace nanoFramework.HomeAssistant.MqttDiscovery
                 Console.WriteLine("Connected to MQTT Broker");
 
                 PublishAutoDiscovery();
-
-                lastUpdatedTimer.Change(0, 60000);
             }
         }
 
@@ -116,8 +128,15 @@ namespace nanoFramework.HomeAssistant.MqttDiscovery
         {
             ValidateConnection();
 
-            Console.WriteLine($"Publishing to topic '{item.GetStateTopic()}' with value: '{state}'");
-            client.Publish(item.GetStateTopic(), Encoding.UTF8.GetBytes(state), null, null, MqttQoSLevel.AtMostOnce, true);
+            try
+            {
+                Console.WriteLine($"Publishing to topic '{item.GetStateTopic()}' with value: '{state}'");
+                client.Publish(item.GetStateTopic(), Encoding.UTF8.GetBytes(state), null, null, MqttQoSLevel.AtMostOnce, true);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to publish state. Possibly due to a connection failure after checking the connection state. Reconnect will republish the value: {ex.Message}");
+            }
         }
 
         public Option AddOption(string name, string[] options, string initialState)
@@ -171,6 +190,5 @@ namespace nanoFramework.HomeAssistant.MqttDiscovery
         private string password;
 
         private ArrayList items;
-        private Timer lastUpdatedTimer;
     }
 }
