@@ -39,6 +39,8 @@ namespace nanoFramework.HomeAssistant.MqttDiscovery
 
         public string DeviceName { get; private set; }
 
+        public string GetAvailabilityTopic() => $"nanoframework/{DeviceName.Replace(" ", "-")}/availability";
+
         public void Connect()
         {
             lock (connectionLock)
@@ -68,7 +70,10 @@ namespace nanoFramework.HomeAssistant.MqttDiscovery
                         }
                     };
 
-                    retCode = client.Connect(DeviceName, username, password);
+                    retCode = client.Connect(DeviceName, username, password,
+                        willRetain: true, MqttQoSLevel.AtLeastOnce, willFlag: true,
+                        GetAvailabilityTopic(), "offline",
+                        cleanSession: true, keepAlivePeriod: 60);
                 } while (retCode != MqttReasonCode.Success);
 
                 client.ConnectionClosed += (sender, e) =>
@@ -104,12 +109,13 @@ namespace nanoFramework.HomeAssistant.MqttDiscovery
             }
 
             Thread.Sleep(10);
+
+            var availabilityTopic = GetAvailabilityTopic();
+            client.Publish(availabilityTopic, Encoding.UTF8.GetBytes("online"), null, null, MqttQoSLevel.AtLeastOnce, true);
+            Console.WriteLine($"Publishing to topic '{availabilityTopic}' with value: 'online'");
+
             foreach (HomeAssistantItem item in items)
             {
-                var topic = item.GetAvailabilityTopic();
-                client.Publish(topic, Encoding.UTF8.GetBytes("online"), null, null, MqttQoSLevel.AtMostOnce, true);
-                Console.WriteLine($"Publishing to topic '{topic}' with value: 'online'");
-
                 client.Publish(item.GetStateTopic(), Encoding.UTF8.GetBytes(item.GetState()), null, null, MqttQoSLevel.AtLeastOnce, true);
             }
         }
